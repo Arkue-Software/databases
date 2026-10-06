@@ -1,0 +1,65 @@
+name: Database migrations and permissions
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "identidad/**/*.sql"
+      - "campanas/**/*.sql"
+      - "init/**"
+      - "pruebas/**"
+      - "docker-compose.migraciones.yml"
+      - ".github/workflows/ci-databases.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate local test credentials
+        run: |
+          mkdir -p secretos
+          for name in \
+            postgres_superusuario_identidad identidad_propietario identidad_servicio \
+            postgres_superusuario_campana campana_propietario campana_servicio \
+            postgres_superusuario_donacion postgres_superusuario_institucional
+          do
+            openssl rand -hex 32 > "secretos/$name"
+          done
+          echo "PASS_IDENT_PROP=$(cat secretos/identidad_propietario)" >> "$GITHUB_ENV"
+          echo "PASS_IDENT_SERV=$(cat secretos/identidad_servicio)" >> "$GITHUB_ENV"
+          echo "PASS_CAMP_PROP=$(cat secretos/campana_propietario)" >> "$GITHUB_ENV"
+          echo "PASS_CAMP_SERV=$(cat secretos/campana_servicio)" >> "$GITHUB_ENV"
+          echo "PASS_DONACION_ADMIN=$(cat secretos/postgres_superusuario_donacion)" >> "$GITHUB_ENV"
+          echo "PASS_INSTITUCIONAL_ADMIN=$(cat secretos/postgres_superusuario_institucional)" >> "$GITHUB_ENV"
+
+      - name: Start the four isolated PostgreSQL databases
+        run: |
+          docker compose -f docker-compose.migraciones.yml up -d --wait \
+            db-identidad db-campana db-donacion db-institucional
+
+      - name: Apply Identity and Campaign migrations
+        run: |
+          docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-identidad
+          docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-campana
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Verify schemas, isolation, and permissions
+        env:
+          PGHOST: localhost
+          DB_IDENTIDAD_PORT: 5434
+          DB_CAMPANA_PORT: 5435
+          DB_DONACION_PORT: 5436
+          DB_INSTITUCIONAL_PORT: 5437
+        run: bash pruebas/verificar-fase1.sh
+
+      - name: Stop databases
+        if: always()
+        run: docker compose -f docker-compose.migraciones.yml down --volumes --remove-orphans

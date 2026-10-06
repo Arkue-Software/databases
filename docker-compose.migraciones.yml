@@ -32,14 +32,15 @@ services:
     volumes:
       - ./identidad/migraciones:/flyway/sql:ro
     entrypoint: ["/bin/sh", "-ec"]
-    command: >-
-      export FLYWAY_PASSWORD="$(cat /run/secrets/identidad_propietario)";
-      exec flyway
-      -url=jdbc:postgresql://db-identidad:5432/db_identidad
-      -user=identidad_propietario
-      -locations=filesystem:/flyway/sql
-      -validateMigrationNaming=true
-      migrate
+    command:
+      - |
+        export FLYWAY_PASSWORD="$(cat /run/secrets/identidad_propietario)"
+        exec flyway \
+          -url=jdbc:postgresql://db-identidad:5432/db_identidad \
+          -user=identidad_propietario \
+          -locations=filesystem:/flyway/sql \
+          -validateMigrationNaming=true \
+          migrate
     networks: [identidad-data]
 
   db-campana:
@@ -73,14 +74,15 @@ services:
     volumes:
       - ./campanas/migraciones:/flyway/sql:ro
     entrypoint: ["/bin/sh", "-ec"]
-    command: >-
-      export FLYWAY_PASSWORD="$(cat /run/secrets/campana_propietario)";
-      exec flyway
-      -url=jdbc:postgresql://db-campana:5432/db_campana
-      -user=campana_propietario
-      -locations=filesystem:/flyway/sql
-      -validateMigrationNaming=true
-      migrate
+    command:
+      - |
+        export FLYWAY_PASSWORD="$(cat /run/secrets/campana_propietario)"
+        exec flyway \
+          -url=jdbc:postgresql://db-campana:5432/db_campana \
+          -user=campana_propietario \
+          -locations=filesystem:/flyway/sql \
+          -validateMigrationNaming=true \
+          migrate
     networks: [campana-data]
 
   db-donacion:

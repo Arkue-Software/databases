@@ -29,12 +29,20 @@ jobs:
           do
             openssl rand -hex 32 > "secretos/$name"
           done
-          echo "PASS_IDENT_PROP=$(cat secretos/identidad_propietario)" >> "$GITHUB_ENV"
-          echo "PASS_IDENT_SERV=$(cat secretos/identidad_servicio)" >> "$GITHUB_ENV"
-          echo "PASS_CAMP_PROP=$(cat secretos/campana_propietario)" >> "$GITHUB_ENV"
-          echo "PASS_CAMP_SERV=$(cat secretos/campana_servicio)" >> "$GITHUB_ENV"
-          echo "PASS_DONACION_ADMIN=$(cat secretos/postgres_superusuario_donacion)" >> "$GITHUB_ENV"
-          echo "PASS_INSTITUCIONAL_ADMIN=$(cat secretos/postgres_superusuario_institucional)" >> "$GITHUB_ENV"
+          for entry in \
+            "PASS_IDENT_PROP identidad_propietario" \
+            "PASS_IDENT_SERV identidad_servicio" \
+            "PASS_CAMP_PROP campana_propietario" \
+            "PASS_CAMP_SERV campana_servicio" \
+            "PASS_DONACION_ADMIN postgres_superusuario_donacion" \
+            "PASS_INSTITUCIONAL_ADMIN postgres_superusuario_institucional"
+          do
+            variable=${entry%% *}
+            name=${entry#* }
+            value=$(cat "secretos/$name")
+            echo "::add-mask::$value"
+            echo "$variable=$value" >> "$GITHUB_ENV"
+          done
 
       - name: Start the four isolated PostgreSQL databases
         run: |

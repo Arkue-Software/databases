@@ -4,6 +4,7 @@
 # DB_*_PORT y las contraseñas PASS_* descritas en README.md.
 set -u
 fallos=0
+SQL_ERROR=
 
 puerto_de() {
   case "$1" in
@@ -15,10 +16,24 @@ puerto_de() {
   esac
 }
 sql() { # usuario base clave consulta
-  PGHOST="${PGHOST:-localhost}" PGPORT="$(puerto_de "$2")" PGPASSWORD="$3" \
-    psql -X -q -At -v ON_ERROR_STOP=1 -U "$1" -d "$2" -c "$4" >/dev/null 2>&1
+  local salida
+  if salida=$(PGHOST="${PGHOST:-localhost}" PGPORT="$(puerto_de "$2")" PGPASSWORD="$3" \
+    psql -X -q -At -v ON_ERROR_STOP=1 -U "$1" -d "$2" -c "$4" 2>&1); then
+    SQL_ERROR=
+    return 0
+  fi
+  SQL_ERROR=$salida
+  return 1
 }
-debe_funcionar() { if sql "$2" "$3" "$4" "$5"; then echo "  OK    $1"; else echo "  FALLA $1 (debía funcionar)"; fallos=$((fallos+1)); fi; }
+debe_funcionar() {
+  if sql "$2" "$3" "$4" "$5"; then
+    echo "  OK    $1"
+  else
+    echo "  FALLA $1 (debía funcionar)"
+    [ -z "$SQL_ERROR" ] || printf '        %s\n' "$SQL_ERROR"
+    fallos=$((fallos+1))
+  fi
+}
 debe_fallar()    { if sql "$2" "$3" "$4" "$5"; then echo "  FALLA $1 (debía ser rechazado)"; fallos=$((fallos+1)); else echo "  OK    $1"; fi; }
 valor()          { PGHOST="${PGHOST:-localhost}" PGPORT="$(puerto_de "$2")" PGPASSWORD="$3" \
   psql -X -q -At -U "$1" -d "$2" -c "$4" 2>/dev/null; }

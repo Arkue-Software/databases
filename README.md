@@ -74,7 +74,7 @@ Para validar las cuatro instancias y los permisos (requiere `psql` y Bash),
 exporta las contraseñas locales y los puertos efectivos:
 
 ```bash
-export PGHOST=localhost
+export PGHOST=127.0.0.1
 export DB_IDENTIDAD_PORT=5434 DB_CAMPANA_PORT=5435
 export DB_DONACION_PORT=5436 DB_INSTITUCIONAL_PORT=5437
 export PASS_IDENT_PROP="$(cat secretos/identidad_propietario)"

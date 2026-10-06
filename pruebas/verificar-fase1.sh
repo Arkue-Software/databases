@@ -17,7 +17,7 @@ puerto_de() {
 }
 sql() { # usuario base clave consulta
   local salida
-  if salida=$(PGHOST="${PGHOST:-localhost}" PGPORT="$(puerto_de "$2")" PGPASSWORD="$3" \
+  if salida=$(PGHOST="${PGHOST:-127.0.0.1}" PGPORT="$(puerto_de "$2")" PGPASSWORD="$3" \
     psql -X -q -At -v ON_ERROR_STOP=1 -U "$1" -d "$2" -c "$4" 2>&1); then
     SQL_ERROR=
     return 0
@@ -35,7 +35,7 @@ debe_funcionar() {
   fi
 }
 debe_fallar()    { if sql "$2" "$3" "$4" "$5"; then echo "  FALLA $1 (debía ser rechazado)"; fallos=$((fallos+1)); else echo "  OK    $1"; fi; }
-valor()          { PGHOST="${PGHOST:-localhost}" PGPORT="$(puerto_de "$2")" PGPASSWORD="$3" \
+valor()          { PGHOST="${PGHOST:-127.0.0.1}" PGPORT="$(puerto_de "$2")" PGPASSWORD="$3" \
   psql -X -q -At -U "$1" -d "$2" -c "$4" 2>/dev/null; }
 
 IP=identidad_propietario; IS=identidad_servicio; CP=campana_propietario; CS=campana_servicio

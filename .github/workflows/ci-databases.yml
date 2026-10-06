@@ -61,7 +61,7 @@ jobs:
 
       - name: Verify schemas, isolation, and permissions
         env:
-          PGHOST: localhost
+          PGHOST: 127.0.0.1
           DB_IDENTIDAD_PORT: 5434
           DB_CAMPANA_PORT: 5435
           DB_DONACION_PORT: 5436

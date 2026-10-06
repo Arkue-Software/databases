@@ -11,19 +11,16 @@ Cada servicio persistente tiene una instancia PostgreSQL independiente:
 | Institucional | `db_institucional` | Base vacía; pendiente del esquema aprobado por sus responsables |
 | Notificaciones | — | No requiere base de negocio |
 
-El Compose publica por defecto los puertos locales 5434–5437 (sobrescribibles
-con `DB_IDENTIDAD_PORT`, `DB_CAMPANA_PORT`, `DB_DONACION_PORT` y
-`DB_INSTITUCIONAL_PORT`). Las cuatro bases tienen volúmenes y redes aislados
-con nombres estables (`redvital_identidad_data`, `redvital_campana_data`,
+Las cuatro bases tienen volúmenes y redes aislados con nombres estables
+(`redvital_identidad_data`, `redvital_campana_data`,
 `redvital_donacion_data`, `redvital_institucional_data`); el nombre de cada
 red se puede sobrescribir con `DB_*_NETWORK`. No se reutilizan las credenciales
 de superusuario entre servicios.
 
-Las aplicaciones ejecutadas directamente en el host usan los puertos
-publicados. En despliegues de contenedores, cada servicio debe conectarse solo
-a su red de datos correspondiente y usar el nombre de servicio PostgreSQL como
-host (`db-identidad` o `db-campana`) en el puerto 5432. No conectes Gateway ni
-otros servicios a esas redes de datos.
+Las redes son internas y no publican puertos PostgreSQL en el host. Cada
+servicio debe conectarse solo a su red de datos correspondiente y usar el
+nombre del servicio PostgreSQL como host (`db-identidad` o `db-campana`) en el
+puerto 5432. No conectes Gateway ni otros servicios a esas redes de datos.
 
 ## Roles
 
@@ -70,21 +67,11 @@ Los archivos de `secretos/` están excluidos del control de versiones. En un
 volumen ya inicializado, cambiar esos archivos no rota automáticamente las
 contraseñas almacenadas por PostgreSQL.
 
-Para validar las cuatro instancias y los permisos (requiere `psql` y Bash),
-exporta las contraseñas locales y los puertos efectivos:
-
-```bash
-export PGHOST=127.0.0.1
-export DB_IDENTIDAD_PORT=5434 DB_CAMPANA_PORT=5435
-export DB_DONACION_PORT=5436 DB_INSTITUCIONAL_PORT=5437
-export PASS_IDENT_PROP="$(cat secretos/identidad_propietario)"
-export PASS_IDENT_SERV="$(cat secretos/identidad_servicio)"
-export PASS_CAMP_PROP="$(cat secretos/campana_propietario)"
-export PASS_CAMP_SERV="$(cat secretos/campana_servicio)"
-export PASS_DONACION_ADMIN="$(cat secretos/postgres_superusuario_donacion)"
-export PASS_INSTITUCIONAL_ADMIN="$(cat secretos/postgres_superusuario_institucional)"
-bash pruebas/verificar-fase1.sh
-```
+El script `pruebas/verificar-fase1.sh` se ejecuta dentro de un contenedor
+conectado a una sola red de datos; no se conecta desde el host ni comparte una
+red de base entre servicios. El CI crea un cliente efímero por red y ejecuta
+los alcances `identidad`, `campana`, `donacion` e `institucional`, pasando las
+credenciales locales desde archivos ignorados por Git.
 
 ## Reglas de cambio
 

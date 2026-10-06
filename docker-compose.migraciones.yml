@@ -16,8 +16,6 @@ services:
       - identidad-data:/var/lib/postgresql/data
       - ./identidad/00_roles.sql:/roles/00_roles.sql:ro
       - ./init/roles.sh:/docker-entrypoint-initdb.d/roles.sh:ro
-    ports:
-      - "${DB_IDENTIDAD_PORT:-5434}:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "db_identidad"]
       interval: 5s
@@ -59,8 +57,6 @@ services:
       - campana-data:/var/lib/postgresql/data
       - ./campanas/00_roles.sql:/roles/00_roles.sql:ro
       - ./init/roles.sh:/docker-entrypoint-initdb.d/roles.sh:ro
-    ports:
-      - "${DB_CAMPANA_PORT:-5435}:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "db_campana"]
       interval: 5s
@@ -96,8 +92,6 @@ services:
     secrets: [postgres_superusuario_donacion]
     volumes:
       - donacion-data:/var/lib/postgresql/data
-    ports:
-      - "${DB_DONACION_PORT:-5436}:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "db_donacion"]
       interval: 5s
@@ -114,8 +108,6 @@ services:
     secrets: [postgres_superusuario_institucional]
     volumes:
       - institucional-data:/var/lib/postgresql/data
-    ports:
-      - "${DB_INSTITUCIONAL_PORT:-5437}:5432"
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "postgres", "-d", "db_institucional"]
       interval: 5s

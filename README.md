@@ -7,7 +7,7 @@ Cada servicio persistente tiene una instancia PostgreSQL independiente:
 |---|---|---|
 | Identidad | `db_identidad` | Migraciones versionadas V001–V003 |
 | Campañas | `db_campana` | Migraciones versionadas V001–V002 |
-| Donación | `db_donacion` | Base vacía; pendiente del esquema aprobado por sus responsables |
+| Donación | `db_donacion` | Migraciones versionadas V001–V007 |
 | Institucional | `db_institucional` | Base vacía; pendiente del esquema aprobado por sus responsables |
 | Notificaciones | — | No requiere base de negocio |
 
@@ -24,7 +24,7 @@ puerto 5432. No conectes Gateway ni otros servicios a esas redes de datos.
 
 ## Roles
 
-Identidad y Campañas usan roles distintos por base:
+Identidad, Campañas y Donación usan roles distintos por base:
 
 | Rol | Uso | Privilegios |
 |---|---|---|
@@ -50,7 +50,8 @@ New-Item -ItemType Directory -Force -Path $secretDir | Out-Null
 $nombres = @(
   "postgres_superusuario_identidad", "identidad_propietario", "identidad_servicio",
   "postgres_superusuario_campana", "campana_propietario", "campana_servicio",
-  "postgres_superusuario_donacion", "postgres_superusuario_institucional"
+  "postgres_superusuario_donacion", "donacion_propietario", "donacion_servicio",
+  "postgres_superusuario_institucional"
 )
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 foreach ($nombre in $nombres) {
@@ -60,7 +61,7 @@ foreach ($nombre in $nombres) {
   [IO.File]::WriteAllText((Join-Path $secretDir $nombre), $secreto)
 }
 docker compose -f docker-compose.migraciones.yml up -d
-docker compose -f docker-compose.migraciones.yml logs migracion-identidad migracion-campana
+docker compose -f docker-compose.migraciones.yml logs migracion-identidad migracion-campana migracion-donacion
 ```
 
 Los archivos de `secretos/` están excluidos del control de versiones. En un
@@ -80,5 +81,23 @@ credenciales locales desde archivos ignorados por Git.
 2. Añade una nueva migración `V00N__descripcion.sql` en un Pull Request.
 3. El responsable del servicio mantiene su modelo de persistencia y verifica
    que mapee el esquema publicado aquí.
-4. No agregues tablas ni roles a Donación o Institucional hasta recibir sus
-   definiciones aprobadas.
+4. No agregues tablas ni roles a Institucional hasta recibir su definición
+   aprobada.
+
+## Donación
+
+`donacion/` sigue el diccionario de datos del DD V3.0 (secciones 5 y 10):
+
+| Migración | Contenido |
+|---|---|
+| V001 | Catálogos cerrados: tipo de donación, componentes y vida útil, grupos, compatibilidad (90 filas por regla, Tabla 11), 9 estados y 13 transiciones (Tabla 20), observaciones operativas y reconocimientos |
+| V002 | Donante (documento solo como HMAC), consentimientos de solo anexado, intención anónima sin datos de identificación |
+| V003 | Donación, unidad, historial de la unidad y reconocimientos otorgados (solo anexado) |
+| V004 | Serie de auditoría del contexto de donación |
+| V005 | Idempotencia, bandeja de salida y eventos procesados (ADR-018) |
+| V006 | Proyección local de campañas publicadas, alimentada por Kafka |
+| V007 | Umbrales y alertas de inventario |
+
+`donacion_servicio` solo actualiza las columnas que el dominio cambia (por
+ejemplo, en `unidad`: estado, veredicto, custodia y marca de actualización);
+la fecha de vencimiento, la donación y todo historial son inmutables para él.

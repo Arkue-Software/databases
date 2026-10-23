@@ -56,6 +56,8 @@ valor()          { PGHOST="$(host_de "$2")" PGPORT="$(puerto_de "$2")" PGPASSWOR
 
 IP=identidad_propietario; IS=identidad_servicio; CP=campana_propietario; CS=campana_servicio
 pIP="${PASS_IDENT_PROP:-}"; pIS="${PASS_IDENT_SERV:-}"; pCP="${PASS_CAMP_PROP:-}"; pCS="${PASS_CAMP_SERV:-}"
+DP=donacion_propietario; DS=donacion_servicio
+pDP="${PASS_DON_PROP:-}"; pDS="${PASS_DON_SERV:-}"
 pD="${PASS_DONACION_ADMIN:-}"; pN="${PASS_INSTITUCIONAL_ADMIN:-}"
 U=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
 
@@ -107,8 +109,38 @@ if scope_includes campana; then
 fi
 
 if scope_includes donacion; then
-  echo "T-DB — db_donacion vacía"
-  debe_funcionar "db_donacion está provisionada y vacía" postgres db_donacion "$pD" "SELECT 1 WHERE current_database()='db_donacion' AND NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public')"
+  echo "DB-DON — db_donacion: catálogos cerrados (DD V3.0, Tablas 10, 11 y 20)"
+  [ "$(valor $DS db_donacion "$pDS" "SELECT count(*) FROM estado_unidad")" = "9" ] && echo "  OK    nueve estados de unidad" || { echo "  FALLA estados de unidad"; fallos=$((fallos+1)); }
+  [ "$(valor $DS db_donacion "$pDS" "SELECT count(*) FROM transicion_valida")" = "13" ] && echo "  OK    trece transiciones válidas" || { echo "  FALLA transiciones válidas"; fallos=$((fallos+1)); }
+  [ "$(valor $DS db_donacion "$pDS" "SELECT count(*) FROM compatibilidad")" = "90" ] && echo "  OK    noventa combinaciones de compatibilidad" || { echo "  FALLA compatibilidad"; fallos=$((fallos+1)); }
+  [ "$(valor $DS db_donacion "$pDS" "SELECT count(*) FROM estado_unidad WHERE cuenta_disponible")" = "1" ] && echo "  OK    un solo estado cuenta como existencia (EC-12)" || { echo "  FALLA cuenta_disponible"; fallos=$((fallos+1)); }
+
+  echo "DB-DON — db_donacion: roles y permisos por columna"
+  D=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
+  N=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
+  debe_funcionar "servicio registra una donación anónima" $DS db_donacion "$pDS" "INSERT INTO donacion (id, tipo_donacion_id, institucion_id, fecha_captacion, operador_id) VALUES ('$D', (SELECT id FROM tipo_donacion WHERE codigo='sangre_total'), '$U', now(), '$U')"
+  debe_funcionar "servicio crea una unidad captada" $DS db_donacion "$pDS" "INSERT INTO unidad (id, donacion_id, componente_id, grupo_sanguineo_id, institucion_custodia_id, estado_id, fecha_vencimiento) VALUES ('$N','$D',(SELECT id FROM componente WHERE codigo='plasma'),(SELECT id FROM grupo_sanguineo WHERE codigo='O+'),'$U',(SELECT id FROM estado_unidad WHERE codigo='captada'), current_date + 365)"
+  debe_funcionar "servicio cambia el estado de la unidad" $DS db_donacion "$pDS" "UPDATE unidad SET estado_id=(SELECT id FROM estado_unidad WHERE codigo='fraccionada'), actualizado_en=now() WHERE id='$N'"
+  debe_fallar    "servicio NO cambia el vencimiento" $DS db_donacion "$pDS" "UPDATE unidad SET fecha_vencimiento = current_date WHERE id='$N'"
+  debe_fallar    "servicio NO reescribe una donación" $DS db_donacion "$pDS" "UPDATE donacion SET campania_id=NULL WHERE id='$D'"
+  debe_fallar    "servicio NO borra unidades" $DS db_donacion "$pDS" "DELETE FROM unidad WHERE id='$N'"
+  debe_fallar    "servicio NO modifica la matriz de transiciones" $DS db_donacion "$pDS" "DELETE FROM transicion_valida"
+  debe_fallar    "servicio NO crea tablas" $DS db_donacion "$pDS" "CREATE TABLE intrusa (x int)"
+  debe_fallar    "donación con donante e intención a la vez (IN-07)" $DS db_donacion "$pDS" "INSERT INTO donacion (id, donante_id, intencion_id, tipo_donacion_id, institucion_id, fecha_captacion, operador_id) VALUES (gen_random_uuid(), '$U', '$U', (SELECT id FROM tipo_donacion), '$U', now(), '$U')"
+  debe_fallar    "intención con código ambiguo (EC-17)" $DS db_donacion "$pDS" "INSERT INTO intencion_donacion (id, codigo, expira_en) VALUES (gen_random_uuid(), 'O0O0O0O0O0O0', now() + interval '1 day')"
+  debe_fallar    "intención de más de 30 días (D-08)" $DS db_donacion "$pDS" "INSERT INTO intencion_donacion (id, codigo, expira_en) VALUES (gen_random_uuid(), '23456789ABCD', now() + interval '31 days')"
+
+  echo "DB-DON — historial, bitácora y bandeja de solo anexado"
+  debe_funcionar "servicio registra el evento de la unidad" $DS db_donacion "$pDS" "INSERT INTO evento_unidad (id, unidad_id, estado_nuevo_id, actor_tipo, actor_id, institucion_id, correlacion_id) VALUES (gen_random_uuid(), '$N', (SELECT id FROM estado_unidad WHERE codigo='captada'), 'usuario', '$U', '$U', '$U')"
+  debe_fallar    "servicio NO borra el historial de la unidad" $DS db_donacion "$pDS" "DELETE FROM evento_unidad WHERE unidad_id='$N'"
+  debe_fallar    "trigger bloquea UPDATE del historial por el PROPIETARIO" $DP db_donacion "$pDP" "UPDATE evento_unidad SET actor_id='otro' WHERE unidad_id='$N'"
+  debe_funcionar "servicio registra un hecho en la bitácora" $DS db_donacion "$pDS" "INSERT INTO registro_auditoria (id, actor_tipo, actor_id, operacion, recurso_tipo, resultado, correlacion_id) VALUES (gen_random_uuid(), 'usuario', '$U', 'registrar_donacion', 'donacion', 'permitido', '$U')"
+  debe_fallar    "servicio NO borra la bitácora" $DS db_donacion "$pDS" "DELETE FROM registro_auditoria"
+  debe_fallar    "trigger bloquea TRUNCATE de la bitácora por el PROPIETARIO" $DP db_donacion "$pDP" "TRUNCATE registro_auditoria"
+  debe_funcionar "servicio escribe en la bandeja de salida" $DS db_donacion "$pDS" "INSERT INTO evento_salida (id, tipo, version_esquema, tema, clave, carga, correlacion_id) VALUES (gen_random_uuid(), 'donation.completed', 1, 'redvital.donacion.donation-completed.v1', '$D', '{}'::jsonb, '$U')"
+  debe_fallar    "la bandeja solo admite eventos activos del catálogo" $DS db_donacion "$pDS" "INSERT INTO evento_salida (id, tipo, version_esquema, tema, clave, carga, correlacion_id) VALUES (gen_random_uuid(), 'transfusion.completed', 1, 'x', 'x', '{}'::jsonb, '$U')"
+
+  debe_fallar "campana_servicio no existe en db_donacion" $CS db_donacion "$pCS" "SELECT 1"
 fi
 
 if scope_includes institucional; then

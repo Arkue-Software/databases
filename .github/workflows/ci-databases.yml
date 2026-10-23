@@ -7,6 +7,7 @@ on:
     paths:
       - "identidad/**/*.sql"
       - "campanas/**/*.sql"
+      - "donacion/**/*.sql"
       - "init/**"
       - "pruebas/**"
       - "docker-compose.migraciones.yml"
@@ -25,7 +26,8 @@ jobs:
           for name in \
             postgres_superusuario_identidad identidad_propietario identidad_servicio \
             postgres_superusuario_campana campana_propietario campana_servicio \
-            postgres_superusuario_donacion postgres_superusuario_institucional
+            postgres_superusuario_donacion donacion_propietario donacion_servicio \
+            postgres_superusuario_institucional
           do
             openssl rand -hex 32 > "secretos/$name"
           done
@@ -33,7 +35,8 @@ jobs:
             for name in \
               postgres_superusuario_identidad identidad_propietario identidad_servicio \
               postgres_superusuario_campana campana_propietario campana_servicio \
-              postgres_superusuario_donacion postgres_superusuario_institucional
+              postgres_superusuario_donacion donacion_propietario donacion_servicio \
+              postgres_superusuario_institucional
             do
               echo "::add-mask::$(cat "secretos/$name")"
             done
@@ -44,6 +47,8 @@ jobs:
             printf 'PASS_IDENT_SERV=%s\n' "$(cat secretos/identidad_servicio)"
             printf 'PASS_CAMP_PROP=%s\n' "$(cat secretos/campana_propietario)"
             printf 'PASS_CAMP_SERV=%s\n' "$(cat secretos/campana_servicio)"
+            printf 'PASS_DON_PROP=%s\n' "$(cat secretos/donacion_propietario)"
+            printf 'PASS_DON_SERV=%s\n' "$(cat secretos/donacion_servicio)"
             printf 'PASS_DONACION_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_donacion)"
             printf 'PASS_INSTITUCIONAL_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_institucional)"
           } > secretos/verificador.env
@@ -53,10 +58,11 @@ jobs:
           docker compose -f docker-compose.migraciones.yml up -d --wait \
             db-identidad db-campana db-donacion db-institucional
 
-      - name: Apply Identity and Campaign migrations
+      - name: Apply Identity, Campaign and Donation migrations
         run: |
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-identidad
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-campana
+          docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-donacion
 
       - name: Verify schemas, isolation, and permissions
         run: |

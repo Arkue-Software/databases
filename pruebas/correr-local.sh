@@ -2,7 +2,7 @@
 # RedVital · databases · Corre en tu máquina lo mismo que el CI (ci-databases.yml):
 #   1. credenciales temporales en secretos/ (no se versionan y se borran al final);
 #   2. las cuatro bases aisladas;
-#   3. migraciones de Identidad, Campañas y Donación con su usuario propietario;
+#   3. migraciones de Identidad, Campañas, Donación e Institucional con su usuario propietario;
 #   4. verificar-fase1.sh contra cada base (esquemas, aislamiento y permisos).
 # Al terminar, bien o mal, borra las bases, sus volúmenes y las credenciales.
 #
@@ -32,7 +32,7 @@ for nombre in \
   postgres_superusuario_identidad identidad_propietario identidad_servicio \
   postgres_superusuario_campana campana_propietario campana_servicio \
   postgres_superusuario_donacion donacion_propietario donacion_servicio \
-  postgres_superusuario_institucional
+  postgres_superusuario_institucional institucional_propietario institucional_servicio
 do
   openssl rand -hex 32 > "secretos/$nombre"
 done
@@ -45,14 +45,15 @@ chmod 755 secretos && chmod 644 secretos/*
   printf 'PASS_DON_PROP=%s\n' "$(cat secretos/donacion_propietario)"
   printf 'PASS_DON_SERV=%s\n' "$(cat secretos/donacion_servicio)"
   printf 'PASS_DONACION_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_donacion)"
-  printf 'PASS_INSTITUCIONAL_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_institucional)"
+  printf 'PASS_INST_PROP=%s\n' "$(cat secretos/institucional_propietario)"
+  printf 'PASS_INST_SERV=%s\n' "$(cat secretos/institucional_servicio)"
 } > secretos/verificador.env
 
 echo "2/4 Bases aisladas"
 compose up -d --wait db-identidad db-campana db-donacion db-institucional >/dev/null
 
 echo "3/4 Migraciones"
-for base in identidad campana donacion; do
+for base in identidad campana donacion institucional; do
   compose run --rm --no-deps "migracion-$base" 2>&1 | grep -E "Successfully applied|is up to date|ERROR" || true
 done
 

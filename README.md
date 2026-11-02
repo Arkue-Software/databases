@@ -5,26 +5,28 @@ Cada servicio persistente tiene una instancia PostgreSQL independiente:
 
 | Servicio | Base | Estado del esquema |
 |---|---|---|
-| Identidad | `db_identidad` | Migraciones versionadas V001–V003 |
-| Campañas | `db_campana` | Migraciones versionadas V001–V002 |
+| Identidad | `db_identidad` | Migraciones versionadas V001–V004 |
+| Campañas | `db_campana` | Migraciones versionadas V001–V003 |
 | Donación | `db_donacion` | Migraciones versionadas V001–V007 |
 | Institucional | `db_institucional` | Base vacía; pendiente del esquema aprobado por sus responsables |
-| Notificaciones | — | No requiere base de negocio |
+| Notificaciones | `db_notifications` | Migraciones versionadas V001–V003 |
 
-Las cuatro bases tienen volúmenes y redes aislados con nombres estables
+Las bases tienen volúmenes y redes aislados con nombres estables
 (`redvital_identidad_data`, `redvital_campana_data`,
-`redvital_donacion_data`, `redvital_institucional_data`); el nombre de cada
+`redvital_donacion_data`, `redvital_notifications_data`,
+`redvital_institucional_data`); el nombre de cada
 red se puede sobrescribir con `DB_*_NETWORK`. No se reutilizan las credenciales
 de superusuario entre servicios.
 
 Las redes son internas y no publican puertos PostgreSQL en el host. Cada
 servicio debe conectarse solo a su red de datos correspondiente y usar el
-nombre del servicio PostgreSQL como host (`db-identidad` o `db-campana`) en el
-puerto 5432. No conectes Gateway ni otros servicios a esas redes de datos.
+nombre del servicio PostgreSQL como host (`db-identidad`, `db-campana` o
+`db-notifications`) en el puerto 5432. No conectes Gateway ni otros servicios a
+esas redes de datos.
 
 ## Roles
 
-Identidad, Campañas y Donación usan roles distintos por base:
+Cada base de negocio usa roles distintos:
 
 | Rol | Uso | Privilegios |
 |---|---|---|
@@ -51,6 +53,7 @@ $nombres = @(
   "postgres_superusuario_identidad", "identidad_propietario", "identidad_servicio",
   "postgres_superusuario_campana", "campana_propietario", "campana_servicio",
   "postgres_superusuario_donacion", "donacion_propietario", "donacion_servicio",
+  "postgres_superusuario_notifications", "notifications_propietario", "notifications_servicio",
   "postgres_superusuario_institucional"
 )
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
@@ -61,18 +64,24 @@ foreach ($nombre in $nombres) {
   [IO.File]::WriteAllText((Join-Path $secretDir $nombre), $secreto)
 }
 docker compose -f docker-compose.migraciones.yml up -d
-docker compose -f docker-compose.migraciones.yml logs migracion-identidad migracion-campana migracion-donacion
+docker compose -f docker-compose.migraciones.yml logs migracion-identidad migracion-campana migracion-donacion migracion-notifications
 ```
 
 Los archivos de `secretos/` están excluidos del control de versiones. En un
 volumen ya inicializado, cambiar esos archivos no rota automáticamente las
 contraseñas almacenadas por PostgreSQL.
 
+Las migraciones de Notificaciones usan `notifications_propietario` y la
+aplicación usa `notifications_servicio`. Los roles `notifications_app` y
+`notifications_read_only` son grupos sin inicio de sesión que conservan las
+concesiones definidas en las migraciones existentes.
+
 El script `pruebas/verificar-fase1.sh` se ejecuta dentro de un contenedor
 conectado a una sola red de datos; no se conecta desde el host ni comparte una
 red de base entre servicios. El CI crea un cliente efímero por red y ejecuta
-los alcances `identidad`, `campana`, `donacion` e `institucional`, pasando las
-credenciales locales desde archivos ignorados por Git.
+los alcances `identidad`, `campana`, `donacion`, `notifications` e
+`institucional`, pasando las credenciales locales desde archivos ignorados por
+Git.
 
 ## Reglas de cambio
 

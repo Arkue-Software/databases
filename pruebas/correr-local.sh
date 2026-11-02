@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # RedVital · databases · Corre en tu máquina lo mismo que el CI (ci-databases.yml):
 #   1. credenciales temporales en secretos/ (no se versionan y se borran al final);
-#   2. las cuatro bases aisladas;
-#   3. migraciones de Identidad, Campañas y Donación con su usuario propietario;
+#   2. las cinco bases aisladas;
+#   3. migraciones de las bases de negocio con su usuario propietario;
 #   4. verificar-fase1.sh contra cada base (esquemas, aislamiento y permisos).
 # Al terminar, bien o mal, borra las bases, sus volúmenes y las credenciales.
 #
@@ -32,6 +32,7 @@ for nombre in \
   postgres_superusuario_identidad identidad_propietario identidad_servicio \
   postgres_superusuario_campana campana_propietario campana_servicio \
   postgres_superusuario_donacion donacion_propietario donacion_servicio \
+  postgres_superusuario_notifications notifications_propietario notifications_servicio \
   postgres_superusuario_institucional
 do
   openssl rand -hex 32 > "secretos/$nombre"
@@ -44,15 +45,16 @@ chmod 755 secretos && chmod 644 secretos/*
   printf 'PASS_CAMP_SERV=%s\n' "$(cat secretos/campana_servicio)"
   printf 'PASS_DON_PROP=%s\n' "$(cat secretos/donacion_propietario)"
   printf 'PASS_DON_SERV=%s\n' "$(cat secretos/donacion_servicio)"
+  printf 'PASS_NOTIFICATIONS_SERV=%s\n' "$(cat secretos/notifications_servicio)"
   printf 'PASS_DONACION_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_donacion)"
   printf 'PASS_INSTITUCIONAL_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_institucional)"
 } > secretos/verificador.env
 
 echo "2/4 Bases aisladas"
-compose up -d --wait db-identidad db-campana db-donacion db-institucional >/dev/null
+compose up -d --wait db-identidad db-campana db-donacion db-notifications db-institucional >/dev/null
 
 echo "3/4 Migraciones"
-for base in identidad campana donacion; do
+for base in identidad campana donacion notifications; do
   compose run --rm --no-deps "migracion-$base" 2>&1 | grep -E "Successfully applied|is up to date|ERROR" || true
 done
 
@@ -70,6 +72,7 @@ verificar() {
 verificar identidad redvital_identidad_data db-identidad DB_IDENTIDAD
 verificar campana redvital_campana_data db-campana DB_CAMPANA
 verificar donacion redvital_donacion_data db-donacion DB_DONACION
+verificar notifications redvital_notifications_data db-notifications DB_NOTIFICATIONS
 verificar institucional redvital_institucional_data db-institucional DB_INSTITUCIONAL
 
 if [ "$fallos" -eq 0 ]; then echo "BASES: OK"; else echo "BASES: $fallos alcance(s) con fallas"; fi

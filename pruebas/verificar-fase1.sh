@@ -8,7 +8,7 @@ SQL_ERROR=
 SCOPE=${DB_SCOPE:-}
 
 case "$SCOPE" in
-  identidad|campana|donacion|institucional) ;;
+  identidad|campana|donacion|notifications|institucional) ;;
   *) echo "Alcance desconocido: $SCOPE" >&2; exit 2 ;;
 esac
 
@@ -17,6 +17,7 @@ puerto_de() {
     db_identidad) echo "${DB_IDENTIDAD_PORT:-5432}" ;;
     db_campana) echo "${DB_CAMPANA_PORT:-5432}" ;;
     db_donacion) echo "${DB_DONACION_PORT:-5432}" ;;
+    db_notifications) echo "${DB_NOTIFICATIONS_PORT:-5432}" ;;
     db_institucional) echo "${DB_INSTITUCIONAL_PORT:-5432}" ;;
     *) echo "Base desconocida: $1" >&2; return 2 ;;
   esac
@@ -26,6 +27,7 @@ host_de() {
     db_identidad) echo "${DB_IDENTIDAD_HOST:-${PGHOST:-127.0.0.1}}" ;;
     db_campana) echo "${DB_CAMPANA_HOST:-${PGHOST:-127.0.0.1}}" ;;
     db_donacion) echo "${DB_DONACION_HOST:-${PGHOST:-127.0.0.1}}" ;;
+    db_notifications) echo "${DB_NOTIFICATIONS_HOST:-${PGHOST:-127.0.0.1}}" ;;
     db_institucional) echo "${DB_INSTITUCIONAL_HOST:-${PGHOST:-127.0.0.1}}" ;;
     *) echo "Base desconocida: $1" >&2; return 2 ;;
   esac
@@ -58,6 +60,7 @@ IP=identidad_propietario; IS=identidad_servicio; CP=campana_propietario; CS=camp
 pIP="${PASS_IDENT_PROP:-}"; pIS="${PASS_IDENT_SERV:-}"; pCP="${PASS_CAMP_PROP:-}"; pCS="${PASS_CAMP_SERV:-}"
 DP=donacion_propietario; DS=donacion_servicio
 pDP="${PASS_DON_PROP:-}"; pDS="${PASS_DON_SERV:-}"
+pNS="${PASS_NOTIFICATIONS_SERV:-}"
 pD="${PASS_DONACION_ADMIN:-}"; pN="${PASS_INSTITUCIONAL_ADMIN:-}"
 U=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
 
@@ -146,6 +149,13 @@ fi
 if scope_includes institucional; then
   echo "T-DB — db_institucional vacía"
   debe_funcionar "db_institucional está provisionada y vacía" postgres db_institucional "$pN" "SELECT 1 WHERE current_database()='db_institucional' AND NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public')"
+fi
+
+if scope_includes notifications; then
+  echo "T-DB — db_notifications: conexión y permisos del servicio"
+  debe_funcionar "notifications_servicio conecta y consulta el esquema" notifications_servicio db_notifications "$pNS" "SELECT count(*) FROM notifications.plantillas"
+  debe_funcionar "notifications_servicio inserta una plantilla" notifications_servicio db_notifications "$pNS" "INSERT INTO notifications.plantillas (codigo, nombre, canal, cuerpo_patron) VALUES ('verif-$U', 'Verificación', 'CORREO', 'verificación')"
+  debe_funcionar "notifications_servicio elimina la plantilla de prueba" notifications_servicio db_notifications "$pNS" "DELETE FROM notifications.plantillas WHERE codigo = 'verif-$U'"
 fi
 
 echo; [ $fallos -eq 0 ] && echo "Fase 1: todas las verificaciones pasaron" || echo "Fase 1: $fallos verificación(es) fallaron"

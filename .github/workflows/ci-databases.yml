@@ -8,6 +8,7 @@ on:
       - "identidad/**/*.sql"
       - "campanas/**/*.sql"
       - "donacion/**/*.sql"
+      - "notifications/**/*.sql"
       - "init/**"
       - "pruebas/**"
       - "docker-compose.migraciones.yml"
@@ -27,6 +28,7 @@ jobs:
             postgres_superusuario_identidad identidad_propietario identidad_servicio \
             postgres_superusuario_campana campana_propietario campana_servicio \
             postgres_superusuario_donacion donacion_propietario donacion_servicio \
+            postgres_superusuario_notifications notifications_propietario notifications_servicio \
             postgres_superusuario_institucional
           do
             openssl rand -hex 32 > "secretos/$name"
@@ -36,6 +38,7 @@ jobs:
               postgres_superusuario_identidad identidad_propietario identidad_servicio \
               postgres_superusuario_campana campana_propietario campana_servicio \
               postgres_superusuario_donacion donacion_propietario donacion_servicio \
+              postgres_superusuario_notifications notifications_propietario notifications_servicio \
               postgres_superusuario_institucional
             do
               echo "::add-mask::$(cat "secretos/$name")"
@@ -49,20 +52,22 @@ jobs:
             printf 'PASS_CAMP_SERV=%s\n' "$(cat secretos/campana_servicio)"
             printf 'PASS_DON_PROP=%s\n' "$(cat secretos/donacion_propietario)"
             printf 'PASS_DON_SERV=%s\n' "$(cat secretos/donacion_servicio)"
+            printf 'PASS_NOTIFICATIONS_SERV=%s\n' "$(cat secretos/notifications_servicio)"
             printf 'PASS_DONACION_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_donacion)"
             printf 'PASS_INSTITUCIONAL_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_institucional)"
           } > secretos/verificador.env
 
-      - name: Start the four isolated PostgreSQL databases
+      - name: Start the isolated PostgreSQL databases
         run: |
           docker compose -f docker-compose.migraciones.yml up -d --wait \
-            db-identidad db-campana db-donacion db-institucional
+            db-identidad db-campana db-donacion db-notifications db-institucional
 
-      - name: Apply Identity, Campaign and Donation migrations
+      - name: Apply database migrations
         run: |
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-identidad
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-campana
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-donacion
+          docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-notifications
 
       - name: Verify schemas, isolation, and permissions
         run: |
@@ -85,6 +90,7 @@ jobs:
           run_verifier identidad redvital_identidad_data db-identidad DB_IDENTIDAD || fallos=$((fallos+1))
           run_verifier campana redvital_campana_data db-campana DB_CAMPANA || fallos=$((fallos+1))
           run_verifier donacion redvital_donacion_data db-donacion DB_DONACION || fallos=$((fallos+1))
+          run_verifier notifications redvital_notifications_data db-notifications DB_NOTIFICATIONS || fallos=$((fallos+1))
           run_verifier institucional redvital_institucional_data db-institucional DB_INSTITUCIONAL || fallos=$((fallos+1))
           exit "$fallos"
 

@@ -44,13 +44,14 @@ chmod 755 secretos && chmod 644 secretos/*
   printf 'PASS_CAMP_SERV=%s\n' "$(cat secretos/campana_servicio)"
   printf 'PASS_DON_PROP=%s\n' "$(cat secretos/donacion_propietario)"
   printf 'PASS_DON_SERV=%s\n' "$(cat secretos/donacion_servicio)"
+  printf 'PASS_NOTIFICATIONS_SERV=%s\n' "$(cat secretos/notifications_servicio)"
   printf 'PASS_DONACION_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_donacion)"
   printf 'PASS_INST_PROP=%s\n' "$(cat secretos/institucional_propietario)"
   printf 'PASS_INST_SERV=%s\n' "$(cat secretos/institucional_servicio)"
 } > secretos/verificador.env
 
 echo "2/4 Bases aisladas"
-compose up -d --wait db-identidad db-campana db-donacion db-institucional >/dev/null
+compose up -d --wait db-identidad db-campana db-donacion db-notifications db-institucional >/dev/null
 
 echo "3/4 Migraciones"
 for base in identidad campana donacion institucional; do
@@ -71,6 +72,7 @@ verificar() {
 verificar identidad redvital_identidad_data db-identidad DB_IDENTIDAD
 verificar campana redvital_campana_data db-campana DB_CAMPANA
 verificar donacion redvital_donacion_data db-donacion DB_DONACION
+verificar notifications redvital_notifications_data db-notifications DB_NOTIFICATIONS
 verificar institucional redvital_institucional_data db-institucional DB_INSTITUCIONAL
 
 if [ "$fallos" -eq 0 ]; then echo "BASES: OK"; else echo "BASES: $fallos alcance(s) con fallas"; fi

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# RedVital · databases · Verificación de T-304.1, T-312.1, T-330.4 (y T-312.5)
+# RedVital · databases · Verificación de T-304.1, T-312.1, T-330.4 (y T-312.5) y db_institucional
 # Corre en un contenedor unido a la red de la base indicada por DB_SCOPE.
 # Usa DB_*_HOST, DB_*_PORT y las contraseñas PASS_* descritas en README.md.
 set -u
@@ -60,8 +60,9 @@ IP=identidad_propietario; IS=identidad_servicio; CP=campana_propietario; CS=camp
 pIP="${PASS_IDENT_PROP:-}"; pIS="${PASS_IDENT_SERV:-}"; pCP="${PASS_CAMP_PROP:-}"; pCS="${PASS_CAMP_SERV:-}"
 DP=donacion_propietario; DS=donacion_servicio
 pDP="${PASS_DON_PROP:-}"; pDS="${PASS_DON_SERV:-}"
-pNS="${PASS_NOTIFICATIONS_SERV:-}"
-pD="${PASS_DONACION_ADMIN:-}"; pN="${PASS_INSTITUCIONAL_ADMIN:-}"
+pD="${PASS_DONACION_ADMIN:-}"
+NP=institucional_propietario; NS=institucional_servicio
+pNP="${PASS_INST_PROP:-}"; pNS="${PASS_INST_SERV:-}"
 U=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
 
 if scope_includes identidad; then
@@ -147,8 +148,33 @@ if scope_includes donacion; then
 fi
 
 if scope_includes institucional; then
-  echo "T-DB — db_institucional vacía"
-  debe_funcionar "db_institucional está provisionada y vacía" postgres db_institucional "$pN" "SELECT 1 WHERE current_database()='db_institucional' AND NOT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname='public')"
+  echo "DB-INST — db_institucional: jerarquía territorial (RF-09, IN-13)"
+  [ "$(valor $NS db_institucional "$pNS" "SELECT count(*) FROM territorio WHERE nivel='nacional'")" = "1" ] && echo "  OK    una sola raíz nacional" || { echo "  FALLA raíz nacional"; fallos=$((fallos+1)); }
+  [ "$(valor $NS db_institucional "$pNS" "SELECT count(*) FROM territorio WHERE nivel='departamental'")" = "33" ] && echo "  OK    treinta y tres departamentos" || { echo "  FALLA departamentos"; fallos=$((fallos+1)); }
+  [ "$(valor $NS db_institucional "$pNS" "SELECT ruta FROM territorio WHERE codigo_divipola='05001'")" = "/00/05/05001" ] && echo "  OK    la ruta se deriva del código" || { echo "  FALLA ruta de Medellín"; fallos=$((fallos+1)); }
+  debe_fallar    "ruta que no corresponde al código (IN-13)" $NS db_institucional "$pNS" "INSERT INTO territorio (codigo_divipola, nombre, nivel, padre_id, ruta) VALUES ('05999','Ficticio','municipal',(SELECT id FROM territorio WHERE codigo_divipola='05'),'/00/05/05998')"
+  debe_fallar    "segunda raíz nacional" $NS db_institucional "$pNS" "INSERT INTO territorio (codigo_divipola, nombre, nivel, ruta) VALUES ('00','Otra','nacional','/00')"
+  debe_fallar    "municipio colgado de otro departamento" $NS db_institucional "$pNS" "INSERT INTO territorio (codigo_divipola, nombre, nivel, padre_id, ruta) VALUES ('05998','Ficticio','municipal',(SELECT id FROM territorio WHERE codigo_divipola='11'),'/00/05/05998')"
+  debe_funcionar "servicio da de alta un municipio" $NS db_institucional "$pNS" "INSERT INTO territorio (codigo_divipola, nombre, nivel, padre_id, ruta) VALUES ('05997','Municipio de verificación','municipal',(SELECT id FROM territorio WHERE codigo_divipola='05'),'/00/05/05997')"
+  debe_fallar    "servicio NO cambia la ruta de un territorio" $NS db_institucional "$pNS" "UPDATE territorio SET ruta='/00/05/05996' WHERE codigo_divipola='05997'"
+  debe_fallar    "servicio NO borra territorios" $NS db_institucional "$pNS" "DELETE FROM territorio WHERE codigo_divipola='05997'"
+
+  echo "DB-INST — db_institucional: instituciones (EC-39, EC-42)"
+  debe_funcionar "servicio da de alta una institución" $NS db_institucional "$pNS" "INSERT INTO institucion (id, codigo, nombre, tipo, territorio_id, creado_por) VALUES ('$U','VER-$RANDOM','Banco de verificación (ficticio)','banco_de_sangre',(SELECT id FROM territorio WHERE codigo_divipola='05997'),'$U')"
+  debe_fallar    "institución adscrita a un departamento" $NS db_institucional "$pNS" "INSERT INTO institucion (codigo, nombre, tipo, territorio_id, creado_por) VALUES ('VER-DEP','Ficticia','banco_de_sangre',(SELECT id FROM territorio WHERE codigo_divipola='05'),'$U')"
+  debe_funcionar "servicio da de baja la institución" $NS db_institucional "$pNS" "UPDATE institucion SET vigente=false WHERE id='$U'"
+  debe_fallar    "servicio NO cambia el tipo" $NS db_institucional "$pNS" "UPDATE institucion SET tipo='servicio_transfusion' WHERE id='$U'"
+  debe_fallar    "servicio NO cambia la fecha de alta" $NS db_institucional "$pNS" "UPDATE institucion SET creado_en=now() - interval '1 year' WHERE id='$U'"
+  debe_fallar    "servicio NO borra instituciones" $NS db_institucional "$pNS" "DELETE FROM institucion WHERE id='$U'"
+  debe_fallar    "servicio NO crea tablas" $NS db_institucional "$pNS" "CREATE TABLE intrusa (x int)"
+
+  echo "DB-INST — serie de auditoría institucional (solo anexado)"
+  debe_funcionar "servicio registra un hecho" $NS db_institucional "$pNS" "INSERT INTO registro_auditoria_inst (actor_tipo, actor_id, operacion, recurso_tipo, resultado, correlacion_id) VALUES ('usuario','$U','crear_institucion','institucion','permitido','$U')"
+  debe_fallar    "servicio NO borra la auditoría" $NS db_institucional "$pNS" "DELETE FROM registro_auditoria_inst"
+  debe_fallar    "trigger bloquea UPDATE directo del PROPIETARIO" $NP db_institucional "$pNP" "UPDATE registro_auditoria_inst SET resultado='denegado'"
+  debe_fallar    "trigger bloquea TRUNCATE directo del PROPIETARIO" $NP db_institucional "$pNP" "TRUNCATE registro_auditoria_inst"
+
+  debe_fallar "campana_servicio no existe en db_institucional" $CS db_institucional "$pCS" "SELECT 1"
 fi
 
 if scope_includes notifications; then

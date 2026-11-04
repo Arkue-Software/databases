@@ -8,8 +8,8 @@ Cada servicio persistente tiene una instancia PostgreSQL independiente:
 | Identidad | `db_identidad` | Migraciones versionadas V001–V004 |
 | Campañas | `db_campana` | Migraciones versionadas V001–V003 |
 | Donación | `db_donacion` | Migraciones versionadas V001–V007 |
-| Institucional | `db_institucional` | Base vacía; pendiente del esquema aprobado por sus responsables |
-| Notificaciones | `db_notifications` | Migraciones versionadas V001–V003 |
+| Institucional | `db_institucional` | Migraciones versionadas V001–V003: territorio (con la geografía DIVIPOLA real), institucion y su serie de auditoría |
+| Notificaciones | — | No requiere base de negocio |
 
 Las bases tienen volúmenes y redes aislados con nombres estables
 (`redvital_identidad_data`, `redvital_campana_data`,
@@ -26,7 +26,7 @@ esas redes de datos.
 
 ## Roles
 
-Cada base de negocio usa roles distintos:
+Las cuatro bases usan roles distintos:
 
 | Rol | Uso | Privilegios |
 |---|---|---|
@@ -53,8 +53,7 @@ $nombres = @(
   "postgres_superusuario_identidad", "identidad_propietario", "identidad_servicio",
   "postgres_superusuario_campana", "campana_propietario", "campana_servicio",
   "postgres_superusuario_donacion", "donacion_propietario", "donacion_servicio",
-  "postgres_superusuario_notifications", "notifications_propietario", "notifications_servicio",
-  "postgres_superusuario_institucional"
+  "postgres_superusuario_institucional", "institucional_propietario", "institucional_servicio"
 )
 $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
 foreach ($nombre in $nombres) {
@@ -64,7 +63,7 @@ foreach ($nombre in $nombres) {
   [IO.File]::WriteAllText((Join-Path $secretDir $nombre), $secreto)
 }
 docker compose -f docker-compose.migraciones.yml up -d
-docker compose -f docker-compose.migraciones.yml logs migracion-identidad migracion-campana migracion-donacion migracion-notifications
+docker compose -f docker-compose.migraciones.yml logs migracion-identidad migracion-campana migracion-donacion migracion-institucional
 ```
 
 Los archivos de `secretos/` están excluidos del control de versiones. En un

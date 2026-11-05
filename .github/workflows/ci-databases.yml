@@ -54,6 +54,8 @@ jobs:
             printf 'PASS_DON_SERV=%s\n' "$(cat secretos/donacion_servicio)"
             printf 'PASS_NOTIFICATIONS_SERV=%s\n' "$(cat secretos/notifications_servicio)"
             printf 'PASS_DONACION_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_donacion)"
+            printf 'PASS_INST_PROP=%s\n' "$(cat secretos/institucional_propietario)"
+            printf 'PASS_INST_SERV=%s\n' "$(cat secretos/institucional_servicio)"
             printf 'PASS_INSTITUCIONAL_ADMIN=%s\n' "$(cat secretos/postgres_superusuario_institucional)"
           } > secretos/verificador.env
 
@@ -67,6 +69,7 @@ jobs:
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-identidad
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-campana
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-donacion
+          docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-institucional
           docker compose -f docker-compose.migraciones.yml run --rm --no-deps migracion-notifications
 
       - name: Verify schemas, isolation, and permissions

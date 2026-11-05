@@ -5,11 +5,11 @@ Cada servicio persistente tiene una instancia PostgreSQL independiente:
 
 | Servicio | Base | Estado del esquema |
 |---|---|---|
-| Identidad | `db_identidad` | Migraciones versionadas V001–V004 |
-| Campañas | `db_campana` | Migraciones versionadas V001–V003 |
-| Donación | `db_donacion` | Migraciones versionadas V001–V007 |
-| Institucional | `db_institucional` | Migraciones versionadas V001–V003: territorio (con la geografía DIVIPOLA real), institucion y su serie de auditoría |
-| Notificaciones | — | No requiere base de negocio |
+| Identidad | `db_identidad` | Migraciones versionadas V001–V005 |
+| Campañas | `db_campana` | Migraciones versionadas V001–V004 |
+| Donación | `db_donacion` | Migraciones versionadas V001–V008 |
+| Institucional | `db_institucional` | Migraciones versionadas V001–V004: territorio (con la geografía DIVIPOLA real), institucion y su serie de auditoría |
+| Notificaciones | `db_notifications` | Migraciones versionadas V001–V003: plantillas, avisos, fallos de entrega, auditoría y bandeja de idempotencia |
 
 Las bases tienen volúmenes y redes aislados con nombres estables
 (`redvital_identidad_data`, `redvital_campana_data`,

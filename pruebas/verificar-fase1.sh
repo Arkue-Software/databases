@@ -63,6 +63,7 @@ pDP="${PASS_DON_PROP:-}"; pDS="${PASS_DON_SERV:-}"
 pD="${PASS_DONACION_ADMIN:-}"
 NP=institucional_propietario; NS=institucional_servicio
 pNP="${PASS_INST_PROP:-}"; pNS="${PASS_INST_SERV:-}"
+pNOTIF="${PASS_NOTIFICATIONS_SERV:-}"
 U=$(cat /proc/sys/kernel/random/uuid 2>/dev/null || uuidgen)
 
 if scope_includes identidad; then
@@ -179,9 +180,9 @@ fi
 
 if scope_includes notifications; then
   echo "T-DB — db_notifications: conexión y permisos del servicio"
-  debe_funcionar "notifications_servicio conecta y consulta el esquema" notifications_servicio db_notifications "$pNS" "SELECT count(*) FROM notifications.plantillas"
-  debe_funcionar "notifications_servicio inserta una plantilla" notifications_servicio db_notifications "$pNS" "INSERT INTO notifications.plantillas (codigo, nombre, canal, cuerpo_patron) VALUES ('verif-$U', 'Verificación', 'CORREO', 'verificación')"
-  debe_funcionar "notifications_servicio elimina la plantilla de prueba" notifications_servicio db_notifications "$pNS" "DELETE FROM notifications.plantillas WHERE codigo = 'verif-$U'"
+  debe_funcionar "notifications_servicio conecta y consulta el esquema" notifications_servicio db_notifications "$pNOTIF" "SELECT count(*) FROM notifications.plantillas"
+  debe_funcionar "notifications_servicio inserta una plantilla" notifications_servicio db_notifications "$pNOTIF" "INSERT INTO notifications.plantillas (codigo, nombre, canal, cuerpo_patron) VALUES ('verif-$U', 'Verificación', 'CORREO', 'verificación')"
+  debe_funcionar "notifications_servicio elimina la plantilla de prueba" notifications_servicio db_notifications "$pNOTIF" "DELETE FROM notifications.plantillas WHERE codigo = 'verif-$U'"
 fi
 
 echo; [ $fallos -eq 0 ] && echo "Fase 1: todas las verificaciones pasaron" || echo "Fase 1: $fallos verificación(es) fallaron"

@@ -3,12 +3,13 @@ name: Database migrations and permissions
 on:
   workflow_dispatch:
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths:
       - "identidad/**/*.sql"
       - "campanas/**/*.sql"
       - "donacion/**/*.sql"
       - "notifications/**/*.sql"
+      - "institucional/**/*.sql"
       - "init/**"
       - "pruebas/**"
       - "docker-compose.migraciones.yml"
@@ -29,7 +30,7 @@ jobs:
             postgres_superusuario_campana campana_propietario campana_servicio \
             postgres_superusuario_donacion donacion_propietario donacion_servicio \
             postgres_superusuario_notifications notifications_propietario notifications_servicio \
-            postgres_superusuario_institucional
+            postgres_superusuario_institucional institucional_propietario institucional_servicio
           do
             openssl rand -hex 32 > "secretos/$name"
           done
@@ -39,7 +40,7 @@ jobs:
               postgres_superusuario_campana campana_propietario campana_servicio \
               postgres_superusuario_donacion donacion_propietario donacion_servicio \
               postgres_superusuario_notifications notifications_propietario notifications_servicio \
-              postgres_superusuario_institucional
+              postgres_superusuario_institucional institucional_propietario institucional_servicio
             do
               echo "::add-mask::$(cat "secretos/$name")"
             done
